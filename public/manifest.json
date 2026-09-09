@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "KayBiT_CEHinteractive",
+  "short_name": "KayBiT_CEH",
+  "description": "Interactive CEH v13 Study Dashboard, Real-time Mock Quiz Engine, Nmap Builder, and Cross-Platform Packaging Suites",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

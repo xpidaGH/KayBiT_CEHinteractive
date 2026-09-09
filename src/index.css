@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/* 3D Flip Card Animation Styles */
+.perspective-container {
+  perspective: 1200px;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.flip-card-flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 0.75rem;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+/* Global Light Theme Styling & Variable Overrides */
+html[data-bs-theme="light"] {
+  --bs-body-bg: #f8fafc;
+  --bs-body-color: #0f172a;
+}
+
+html[data-bs-theme="light"] body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html[data-bs-theme="light"] .app-theme-container,
+html[data-bs-theme="light"] .bg-black {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html[data-bs-theme="light"] .navbar.bg-dark,
+html[data-bs-theme="light"] .navbar-dark {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+html[data-bs-theme="light"] .card.bg-dark,
+html[data-bs-theme="light"] .modal-content.bg-dark,
+html[data-bs-theme="light"] .list-group-item.bg-dark {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+html[data-bs-theme="light"] .card-header.bg-dark,
+html[data-bs-theme="light"] .card-footer.bg-dark,
+html[data-bs-theme="light"] .modal-header.bg-dark,
+html[data-bs-theme="light"] .modal-footer.bg-dark {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html[data-bs-theme="light"] .text-light {
+  color: #0f172a !important;
+}
+
+html[data-bs-theme="light"] .text-secondary {
+  color: #64748b !important;
+}
+
+html[data-bs-theme="light"] .border-secondary {
+  border-color: #e2e8f0 !important;
+}
+
+html[data-bs-theme="light"] input.bg-dark,
+html[data-bs-theme="light"] select.bg-dark,
+html[data-bs-theme="light"] textarea.bg-dark {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html[data-bs-theme="light"] input.bg-dark:focus,
+html[data-bs-theme="light"] select.bg-dark:focus,
+html[data-bs-theme="light"] textarea.bg-dark:focus {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 0.25rem rgba(2, 132, 199, 0.15) !important;
+}
+
+html[data-bs-theme="light"] .input-group-text.bg-secondary {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+html[data-bs-theme="light"] .table-dark {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+html[data-bs-theme="light"] .table-dark > :not(caption) > * > * {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+html[data-bs-theme="light"] .table-dark tbody tr:hover > * {
+  background-color: #f8fafc !important;
+}
+
+html[data-bs-theme="light"] .table-secondary {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+html[data-bs-theme="light"] .btn-dark {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html[data-bs-theme="light"] .btn-dark:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html[data-bs-theme="light"] .flip-card-face.bg-dark {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+html[data-bs-theme="light"] .bg-black.bg-opacity-40,
+html[data-bs-theme="light"] .bg-black.bg-opacity-50 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Light mode Recharts adjustments */
+html[data-bs-theme="light"] .recharts-cartesian-grid line {
+  stroke: #e2e8f0 !important;
+}
+
+html[data-bs-theme="light"] .recharts-text {
+  fill: #64748b !important;
+}
+
+html[data-bs-theme="light"] .recharts-default-tooltip {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}

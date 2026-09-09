@@ -1,0 +1,6 @@
+{
+  "name": "KayBiT_CEHinteractive",
+  "description": "Interactive CEH v13 Study Dashboard with Global Dark/Light Theme, 3D Domain Term Flashcards, Score Trends Leaderboard, Mock Quiz Engine, Nmap Command Builder, Local Notes, Fillable PDF Generator, and Cross-Platform Packaging Suites.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
