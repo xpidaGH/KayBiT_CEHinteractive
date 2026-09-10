@@ -19,6 +19,7 @@ export interface CEHDomain {
   objectives: string[];
   keyTools: string[];
   commonPorts: string[];
+  relevantPorts?: string[];
   attackVectors: string[];
   status: CEHDomainStatus;
   userNotes: string;

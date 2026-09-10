@@ -73,12 +73,13 @@ export const DomainTracker: React.FC<DomainTrackerProps> = ({
   });
 
   const toggleSubtopic = (domain: CEHDomain, subtopicId: string) => {
-    const updatedChecklist = domain.checklist.map((s) =>
+    const list = domain.checklist || [];
+    const updatedChecklist = list.map((s) =>
       s.id === subtopicId ? { ...s, completed: !s.completed } : s
     );
 
     // Auto update status if all subtopics completed
-    const allCompleted = updatedChecklist.every((s) => s.completed);
+    const allCompleted = updatedChecklist.length > 0 && updatedChecklist.every((s) => s.completed);
     let newStatus = domain.status;
     if (allCompleted) {
       newStatus = 'mastered';
@@ -281,8 +282,9 @@ export const DomainTracker: React.FC<DomainTrackerProps> = ({
       <div className="row g-3">
         {filteredDomains.map((domain) => {
           const isExpanded = expandedCode === domain.code;
-          const completedSubtopics = domain.checklist.filter((s) => s.completed).length;
-          const totalSubtopics = domain.checklist.length;
+          const checklist = domain.checklist || [];
+          const completedSubtopics = checklist.filter((s) => s.completed).length;
+          const totalSubtopics = checklist.length;
           const percent = totalSubtopics > 0 ? Math.round((completedSubtopics / totalSubtopics) * 100) : 0;
 
           return (
@@ -374,7 +376,7 @@ export const DomainTracker: React.FC<DomainTrackerProps> = ({
                           Learning Objectives & Checklist
                         </h6>
                         <div className="list-group list-group-flush border border-secondary rounded">
-                          {domain.checklist.map((sub) => (
+                          {checklist.map((sub) => (
                             <label
                               key={sub.id}
                               className={`list-group-item list-group-item-action bg-dark text-light border-secondary d-flex align-items-center gap-3 py-2 cursor-pointer ${
@@ -402,7 +404,7 @@ export const DomainTracker: React.FC<DomainTrackerProps> = ({
                             Key Examination Tools
                           </span>
                           <div className="d-flex flex-wrap gap-1">
-                            {domain.keyTools.map((t, idx) => (
+                            {(domain.keyTools || []).map((t, idx) => (
                               <span
                                 key={idx}
                                 className="badge bg-secondary bg-opacity-40 text-info border border-secondary small"
@@ -419,7 +421,7 @@ export const DomainTracker: React.FC<DomainTrackerProps> = ({
                             Core Attack Vectors
                           </span>
                           <div className="d-flex flex-wrap gap-1">
-                            {domain.attackVectors.map((v, idx) => (
+                            {(domain.attackVectors || []).map((v, idx) => (
                               <span
                                 key={idx}
                                 className="badge bg-danger bg-opacity-20 text-danger border border-danger border-opacity-30 small"
@@ -430,36 +432,39 @@ export const DomainTracker: React.FC<DomainTrackerProps> = ({
                           </div>
                         </div>
 
-                        {/* Relevant Ports */}
-                        {domain.relevantPorts && domain.relevantPorts.length > 0 && (
+                        {/* Relevant / Common Ports */}
+                        {((domain.commonPorts && domain.commonPorts.length > 0) ||
+                          (domain.relevantPorts && domain.relevantPorts.length > 0)) && (
                           <div className="mb-3">
                             <span className="small text-secondary fw-semibold d-block mb-1 text-uppercase">
                               High-Frequency Exam Ports
                             </span>
                             <div className="d-flex flex-wrap gap-1">
-                              {domain.relevantPorts.map((p, idx) => (
+                              {(domain.commonPorts || domain.relevantPorts || []).map((p, idx) => (
                                 <span
                                   key={idx}
                                   className="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30 font-monospace small"
                                 >
-                                  Port {p}
+                                  {p.startsWith('Port ') ? p : `Port ${p}`}
                                 </span>
                               ))}
                             </div>
                           </div>
                         )}
 
-                        {/* Countermeasures */}
-                        <div className="mb-3">
-                          <span className="small text-secondary fw-semibold d-block mb-1 text-uppercase">
-                            Defensive Mitigations
-                          </span>
-                          <ul className="small text-secondary ps-3 mb-0">
-                            {domain.countermeasures.map((c, idx) => (
-                              <li key={idx} className="mb-1">{c}</li>
-                            ))}
-                          </ul>
-                        </div>
+                        {/* Defensive Mitigations / Countermeasures */}
+                        {domain.countermeasures && domain.countermeasures.length > 0 && (
+                          <div className="mb-3">
+                            <span className="small text-secondary fw-semibold d-block mb-1 text-uppercase">
+                              Defensive Mitigations
+                            </span>
+                            <ul className="small text-secondary ps-3 mb-0">
+                              {domain.countermeasures.map((c, idx) => (
+                                <li key={idx} className="mb-1">{c}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
                       {/* Column 3: In-Place Domain Study Notes */}

@@ -60,14 +60,15 @@ export const NmapBuilder: React.FC = () => {
     }
 
     const evasionMap: Record<string, boolean> = {};
+    const flags = p.selectedFlags || [];
     ['-f', '-g', '-D', '--data-length', '--badsum', '--spoof-mac'].forEach((evFlag) => {
-      if (p.selectedFlags.includes(evFlag)) {
+      if (flags.includes(evFlag)) {
         evasionMap[evFlag] = true;
       }
     });
     setActiveEvasion(evasionMap);
 
-    const scriptFlags = p.selectedFlags
+    const scriptFlags = flags
       .filter((f) => f.startsWith('--script='))
       .map((f) => f.replace('--script=', ''));
     setSelectedScripts(scriptFlags);

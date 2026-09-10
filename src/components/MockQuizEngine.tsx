@@ -33,13 +33,13 @@ interface MockQuizEngineProps {
 }
 
 export const MockQuizEngine: React.FC<MockQuizEngineProps> = ({
-  questions,
+  questions = [],
   onAddQuestion,
   onImportQuestions,
-  activeDomainFilter,
+  activeDomainFilter = 'all',
   setActiveDomainFilter,
-  domainCodes,
-  quizHistory,
+  domainCodes = [],
+  quizHistory = [],
   onSaveScoreRecord,
   onClearHistory
 }) => {
@@ -315,7 +315,7 @@ export const MockQuizEngine: React.FC<MockQuizEngineProps> = ({
               onChange={(e) => setActiveDomainFilter(e.target.value)}
             >
               <option value="all">All CEH v13 Modules ({questions.length} Questions)</option>
-              {domainCodes.map((d) => (
+              {(domainCodes || []).map((d) => (
                 <option key={d.code} value={d.code}>
                   {d.code}: {d.title}
                 </option>
@@ -433,7 +433,7 @@ export const MockQuizEngine: React.FC<MockQuizEngineProps> = ({
 
                 {/* Options List */}
                 <div className="d-grid gap-2 mb-4">
-                  {currentQ.options.map((option, optIdx) => {
+                  {(currentQ.options || []).map((option, optIdx) => {
                     const isSelected = selectedAnswers[currentIndex] === optIdx;
                     const isCorrect = optIdx === currentQ.correctIndex;
                     const showFeedback = mode === 'practice' && isSelected;
@@ -709,7 +709,7 @@ export const MockQuizEngine: React.FC<MockQuizEngineProps> = ({
                         value={newQuestionDomain}
                         onChange={(e) => setNewQuestionDomain(e.target.value)}
                       >
-                        {domainCodes.map((d) => (
+                        {(domainCodes || []).map((d) => (
                           <option key={d.code} value={d.code}>
                             {d.code}: {d.title}
                           </option>

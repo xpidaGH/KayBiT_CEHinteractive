@@ -40,7 +40,7 @@ interface LeaderboardProps {
 }
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({
-  quizHistory,
+  quizHistory = [],
   onTakeQuiz,
   onClearHistory,
   onAddSampleHistory

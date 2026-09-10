@@ -160,9 +160,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   activeTab === 'nmap' ? 'active bg-info text-dark fw-semibold' : 'text-secondary'
                 }`}
                 onClick={() => setActiveTab('nmap')}
+                title="Scanner & Attack Tool Generators: Nmap, Metasploit, Wireshark, Hydra"
               >
                 <Terminal size={14} />
-                <span>Nmap Builder</span>
+                <span>Tool Generators</span>
               </button>
             </li>
             <li className="nav-item">

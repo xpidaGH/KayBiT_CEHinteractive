@@ -7,7 +7,7 @@ import { DomainTracker } from './components/DomainTracker';
 import { MockQuizEngine } from './components/MockQuizEngine';
 import { Flashcards } from './components/Flashcards';
 import { Leaderboard } from './components/Leaderboard';
-import { NmapBuilder } from './components/NmapBuilder';
+import { ScannerToolsSuite } from './components/ScannerToolsSuite';
 import { CheatSheetViewer } from './components/CheatSheetViewer';
 import { NotesManager } from './components/NotesManager';
 import { PackagingSuite } from './components/PackagingSuite';
@@ -117,7 +117,17 @@ export default function App() {
   const [questions, setQuestions] = useState<QuizQuestion[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.QUESTIONS);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: QuizQuestion[] = JSON.parse(saved);
+        const existingIds = new Set(parsed.map((q) => q.id));
+        const missingDefaults = INITIAL_MOCK_QUESTIONS.filter((q) => !existingIds.has(q.id));
+        if (missingDefaults.length > 0) {
+          const merged = [...parsed, ...missingDefaults];
+          localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(merged));
+          return merged;
+        }
+        return parsed;
+      }
     } catch (e) {
       console.warn('Failed to load questions from storage:', e);
     }
@@ -230,7 +240,7 @@ export default function App() {
     }
   };
 
-  const handleSaveNote = (note: StudentNote) => {
+  const handleSaveNote = (note: StudentNote, options?: { silent?: boolean }) => {
     setNotes((prev) => {
       const exists = prev.some((n) => n.id === note.id);
       if (exists) {
@@ -238,7 +248,9 @@ export default function App() {
       }
       return [note, ...prev];
     });
-    showToast('Note saved to LocalStorage!');
+    if (!options?.silent) {
+      showToast('Note saved to LocalStorage!');
+    }
   };
 
   const handleDeleteNote = (id: string) => {
@@ -358,7 +370,7 @@ export default function App() {
   // Export Standalone Single-File HTML5 Bundle
   const handleExportStandaloneHtml = () => {
     try {
-      const activeNotesContent = notes.map((n) => `${n.title}:\n${n.content}`).join('\n\n---\n\n');
+      const activeNotesContent = (notes || []).map((n) => `${n.title}:\n${n.content}`).join('\n\n---\n\n');
       const htmlString = exportSingleFileHtmlApp(domains, questions, activeNotesContent);
       const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -375,19 +387,20 @@ export default function App() {
   };
 
   // Weighted Exam Readiness calculation
-  const totalWeight = domains.reduce((acc, d) => acc + d.weight, 0);
-  const earnedWeight = domains.reduce((acc, d) => {
-    if (d.status === 'mastered') return acc + d.weight;
+  const totalWeight = (domains || []).reduce((acc, d) => acc + (d.weight || 0), 0);
+  const earnedWeight = (domains || []).reduce((acc, d) => {
+    if (d.status === 'mastered') return acc + (d.weight || 0);
     if (d.status === 'in_progress') {
-      const checklistDone = d.subtopics.filter((s) => s.completed).length;
-      const ratio = d.subtopics.length > 0 ? checklistDone / d.subtopics.length : 0.5;
-      return acc + d.weight * (0.3 + 0.5 * ratio);
+      const list = d.checklist || [];
+      const checklistDone = list.filter((s) => s.completed).length;
+      const ratio = list.length > 0 ? checklistDone / list.length : 0.5;
+      return acc + (d.weight || 0) * (0.3 + 0.5 * ratio);
     }
     return acc;
   }, 0);
   const examReadinessPercentage = totalWeight > 0 ? Math.round((earnedWeight / totalWeight) * 100) : 0;
 
-  const domainCodesList = domains.map((d) => ({ code: d.code, title: d.title }));
+  const domainCodesList = (domains || []).map((d) => ({ code: d.code, title: d.title }));
 
   return (
     <div
@@ -461,7 +474,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'nmap' && <NmapBuilder />}
+        {activeTab === 'nmap' && <ScannerToolsSuite />}
 
         {activeTab === 'cheatsheets' && <CheatSheetViewer />}
 

@@ -115,7 +115,7 @@ export async function generateInteractiveAcroFormPdf(
   currentY -= 24;
   // Digital Form Field: Domain Dropdown Menu
   const domainDropdown = form.createDropdown('domain_selector_dropdown');
-  const domainOptions = domains.map((d) => `[${d.code}] ${d.title.substring(0, 50)}`);
+  const domainOptions = (domains || []).map((d) => `[${d.code}] ${d.title.substring(0, 50)}`);
   domainDropdown.setOptions(domainOptions);
   if (domainOptions.length > 0) {
     domainDropdown.select(domainOptions[0]);
