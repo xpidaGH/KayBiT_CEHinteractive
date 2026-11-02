@@ -1,6 +1,6 @@
 {
   "name": "KayBiT_CEHinteractive",
-  "description": "Interactive CEH v13 Study Dashboard with Global Dark/Light Theme, 3D Domain Term Flashcards, Score Trends Leaderboard, 45+ Mock Exam Questions, Scanner Tool Generators (Nmap, Metasploit, Wireshark, Hydra), Encrypted Notes, Fillable PDF Generator, and Packaging Suites.",
+  "description": "Interactive CEH v13 Study Dashboard with Daily Study Streak Tracker, 5 UI Theme Variations, KBT Brand Logo Squircle Assets, 3D Domain Flashcards, Scanner Generators (Nmap, Metasploit, Wireshark, Hydra), and Multi-Platform Packaging Suites.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

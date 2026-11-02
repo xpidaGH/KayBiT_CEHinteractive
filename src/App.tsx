@@ -15,6 +15,8 @@ import { UserGuideModal } from './components/UserGuideModal';
 import { generateInteractiveAcroFormPdf } from './utils/pdfGenerator';
 import { exportSingleFileHtmlApp } from './utils/htmlExporter';
 import { CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { ThemeVariation, THEME_OPTIONS } from './components/ThemeSettingsModal';
+import { recordDailyStudyActivity } from './components/DailyStreakTracker';
 
 const STORAGE_KEYS = {
   DOMAINS: 'kaybit_ceh_domains_v1',
@@ -23,7 +25,8 @@ const STORAGE_KEYS = {
   HISTORY: 'kaybit_ceh_history_v1',
   EXAM_DATE: 'kaybit_ceh_exam_date_v1',
   STUDENT_NAME: 'kaybit_ceh_student_name_v1',
-  THEME: 'kaybit_ceh_theme_v1'
+  THEME: 'kaybit_ceh_theme_v1',
+  THEME_VARIATION: 'kaybit_ceh_theme_variation_v1'
 };
 
 const DEFAULT_INITIAL_NOTES: StudentNote[] = [
@@ -61,7 +64,20 @@ export default function App() {
   const [isUserGuideOpen, setIsUserGuideOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 0. Theme State: 'dark' (default) or 'light'
+  // 0. Theme Variation State (Editorial, Technical, Warm, Dark, Vibrant)
+  const [themeVariation, setThemeVariation] = useState<ThemeVariation>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.THEME_VARIATION);
+      if (saved && ['editorial', 'technical', 'warm', 'dark', 'vibrant'].includes(saved)) {
+        return saved as ThemeVariation;
+      }
+    } catch (e) {
+      console.warn('Failed to load theme variation preference:', e);
+    }
+    return 'dark';
+  });
+
+  // Base 'dark' or 'light' for bootstrap compatibility
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.THEME);
@@ -75,30 +91,44 @@ export default function App() {
   // Apply theme attributes to document & meta tags
   useEffect(() => {
     try {
-      document.documentElement.setAttribute('data-bs-theme', theme);
-      if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', themeVariation);
+      localStorage.setItem(STORAGE_KEYS.THEME_VARIATION, themeVariation);
+
+      const targetBsTheme = (themeVariation === 'editorial' || themeVariation === 'warm') ? 'light' : 'dark';
+      setTheme(targetBsTheme);
+      document.documentElement.setAttribute('data-bs-theme', targetBsTheme);
+
+      if (targetBsTheme === 'light') {
         document.documentElement.classList.add('theme-light');
         document.documentElement.classList.remove('theme-dark');
       } else {
         document.documentElement.classList.add('theme-dark');
         document.documentElement.classList.remove('theme-light');
       }
-      localStorage.setItem(STORAGE_KEYS.THEME, theme);
+      localStorage.setItem(STORAGE_KEYS.THEME, targetBsTheme);
 
       const metaThemeColor = document.querySelector('meta[name="theme-color"]');
       if (metaThemeColor) {
-        metaThemeColor.setAttribute('content', theme === 'dark' ? '#0d1117' : '#ffffff');
+        metaThemeColor.setAttribute('content', targetBsTheme === 'dark' ? '#090d16' : '#faf8f5');
       }
     } catch (e) {
       console.warn('Failed to sync theme to DOM/storage:', e);
     }
-  }, [theme]);
+  }, [themeVariation]);
+
+  const handleSelectThemeVariation = (newTheme: ThemeVariation) => {
+    setThemeVariation(newTheme);
+    const target = THEME_OPTIONS.find((t) => t.id === newTheme);
+    showToast(`Theme updated: ${target?.name || newTheme}`);
+    recordDailyStudyActivity();
+  };
 
   const toggleTheme = () => {
-    setTheme((prev) => {
-      const nextTheme = prev === 'dark' ? 'light' : 'dark';
-      showToast(`Switched to ${nextTheme === 'dark' ? 'Dark' : 'Light'} Mode`);
-      return nextTheme;
+    setThemeVariation((prev) => {
+      // Toggle between dark and editorial or warm
+      const next: ThemeVariation = prev === 'dark' ? 'editorial' : 'dark';
+      showToast(`Switched theme: ${next === 'dark' ? 'Elegant Dark' : 'Editorial & Refined'}`);
+      return next;
     });
   };
 
@@ -204,6 +234,7 @@ export default function App() {
 
   const handleUpdateDomain = (updatedDomain: CEHDomain) => {
     setDomains((prev) => prev.map((d) => (d.code === updatedDomain.code ? updatedDomain : d)));
+    recordDailyStudyActivity();
   };
 
   const handleSelectDomainForQuiz = (domainCode: string) => {
@@ -220,6 +251,7 @@ export default function App() {
   const handleAddCustomQuestion = (newQuestion: QuizQuestion) => {
     setQuestions((prev) => [newQuestion, ...prev]);
     showToast('Custom question saved to local question bank!');
+    recordDailyStudyActivity();
   };
 
   const handleImportQuestions = (imported: QuizQuestion[]) => {
@@ -230,6 +262,7 @@ export default function App() {
   const handleSaveScoreRecord = (record: QuizScoreRecord) => {
     setQuizHistory((prev) => [record, ...prev]);
     showToast(`Exam assessment score (${record.score}%) recorded!`);
+    recordDailyStudyActivity();
   };
 
   const handleClearHistory = () => {
@@ -248,6 +281,7 @@ export default function App() {
       }
       return [note, ...prev];
     });
+    recordDailyStudyActivity();
     if (!options?.silent) {
       showToast('Note saved to LocalStorage!');
     }
@@ -418,6 +452,8 @@ export default function App() {
         examReadinessPercentage={examReadinessPercentage}
         theme={theme}
         onToggleTheme={toggleTheme}
+        currentThemeVariation={themeVariation}
+        onSelectThemeVariation={handleSelectThemeVariation}
       />
 
       {/* Floating Alert / Toast */}

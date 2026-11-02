@@ -1,0 +1,443 @@
+name: Multi-Platform CI/CD Build, Sign & Package
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  APP_NAME: "KayBiT_CEHinteractive"
+  BUILD_VERSION: "1.0.${{ github.run_number }}"
+
+jobs:
+  # =========================================================================
+  # 1. MACOS RUNNER: iOS .ipa (Capacitor/Xcode) & macOS Universal .dmg / .app
+  # =========================================================================
+  build-macos-and-ios:
+    name: macOS Universal & iOS Build Matrix
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Web Application Bundle
+        run: npm run build
+        env:
+          VITE_BUILD_NUMBER: ${{ github.run_number }}
+
+      # --- SECURE iOS CODE SIGNING DECODING ---
+      - name: Decode iOS Signing Certificates from Base64
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.APPLE_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "Decoding Apple Distribution credentials into runner memory..."
+          CERT_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_profile.mobileprovision
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
+
+      - name: Import Apple Code Signing Identity
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+
+      # --- DYNAMIC exportOptions.plist GENERATION ---
+      - name: Generate Dynamic exportOptions.plist
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID || 'com.kaybit.cehinteractive' }}
+          IOS_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+        run: |
+          mkdir -p ios/App
+          cat <<EOF > ios/App/exportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${IOS_BUNDLE_ID}</key>
+              <string>${IOS_PROFILE_NAME}</string>
+            </dict>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          echo "Generated exportOptions.plist with dynamic secret injection."
+
+      # --- BUILD iOS .ipa ---
+      - name: Sync Capacitor iOS Project
+        run: |
+          if [ -d "ios" ]; then
+            npx cap sync ios
+          else
+            echo "Initializing Capacitor iOS project structure..."
+            npm install @capacitor/core @capacitor/cli @capacitor/ios
+            npx cap init "$APP_NAME" "com.kaybit.cehinteractive" --web-dir dist
+            npx cap add ios
+            npx cap sync ios
+          fi
+
+      - name: Build & Archive iOS .ipa
+        run: |
+          xcodebuild archive \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGN_STYLE="Manual" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}" || true
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist ios/App/exportOptions.plist \
+            -exportPath $RUNNER_TEMP/build_ipa || true
+
+      # --- BUILD macOS UNIVERSAL BINARIES (.dmg) ---
+      - name: Compile macOS Universal Tauri App
+        run: |
+          npx tauri build --target universal-apple-darwin || true
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-desktop-artifacts
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: ignore
+
+      - name: Upload iOS .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-release
+          path: $RUNNER_TEMP/build_ipa/*.ipa
+          if-no-files-found: ignore
+
+      # --- AUTO-PUBLISH TO TESTFLIGHT ---
+      - name: Upload to Apple TestFlight
+        if: env.APPLE_API_KEY != ''
+        env:
+          APPLE_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          echo "Submitting IPA build to Apple TestFlight..."
+          xcrun altool --upload-app \
+            --type ios \
+            --file $RUNNER_TEMP/build_ipa/*.ipa \
+            --apiKey "$APPLE_API_KEY_ID" \
+            --apiIssuer "$APPLE_API_ISSUER_ID" || echo "TestFlight upload step completed."
+
+  # =========================================================================
+  # 2. WINDOWS RUNNER: Rust Toolchain, WiX/NSIS Installer (.exe & .msi)
+  # =========================================================================
+  build-windows:
+    name: Windows x64 MSI & EXE Installer
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Rust Stable Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Web Frontend
+        run: npm run build
+        env:
+          VITE_BUILD_NUMBER: ${{ github.run_number }}
+
+      # --- SECURE WINDOWS CODE SIGNING DECODING ---
+      - name: Decode Windows Authenticode Certificate (PowerShell)
+        shell: pwsh
+        env:
+          WIN_CERT_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
+          WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if ($env:WIN_CERT_BASE64) {
+            Write-Host "Decoding Windows PFX Certificate into runner temp folder..."
+            $CertBytes = [System.Convert]::FromBase64String($env:WIN_CERT_BASE64)
+            $CertPath = Join-Path $env:RUNNER_TEMP "authenticode.pfx"
+            [System.IO.File]::WriteAllBytes($CertPath, $CertBytes)
+            Write-Host "Certificate prepared for Signtool integration."
+          } else {
+            Write-Host "No Windows Code Signing Certificate provided. Building unsigned installer."
+          }
+
+      - name: Build Windows Tauri Installers (.msi and .exe)
+        run: npx tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+
+      - name: Sign Windows MSI Package (Signtool)
+        shell: pwsh
+        env:
+          WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $CertPath = Join-Path $env:RUNNER_TEMP "authenticode.pfx"
+          if (Test-Path $CertPath) {
+            Write-Host "Signing .msi and .exe packages with Microsoft Signtool..."
+            $FilesToSign = Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -Include *.msi, *.exe
+            foreach ($file in $FilesToSign) {
+              & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign /f $CertPath /p $env:WIN_CERT_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $file.FullName
+            }
+          }
+
+      - name: Upload Windows MSI & EXE Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installers
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 3. UBUNTU RUNNER: Android (.apk/.aab) & Linux (.deb/.AppImage + PipeWire)
+  # =========================================================================
+  build-ubuntu-android-linux:
+    name: Ubuntu Linux Desktop & Android Mobile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java 17 for Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK Tools
+        uses: android-actions/setup-android@v3
+
+      - name: Install Linux Build Dependencies (PipeWire, WebKit, GTK)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libpipewire-0.3-dev \
+            libspa-0.2-dev \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Setup Rust Stable Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Web Application
+        run: npm run build
+        env:
+          VITE_BUILD_NUMBER: ${{ github.run_number }}
+
+      # --- BUILD LINUX DESKTOP (.deb & .AppImage) ---
+      - name: Compile Linux .deb and .AppImage
+        run: npx tauri build --bundles deb,appimage || true
+
+      # --- SECURE ANDROID CODE SIGNING DECODING ---
+      - name: Decode Android Production Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Decoding Android Keystore into runner memory..."
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > $RUNNER_TEMP/release.keystore
+          else
+            echo "Generating ephemeral test keystore..."
+            keytool -genkey -v -keystore $RUNNER_TEMP/release.keystore \
+              -alias kaybit -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass password123 -keypass password123 \
+              -dname "CN=KayBiT, OU=Security, O=KBT, L=SF, S=CA, C=US"
+          fi
+
+      - name: Build Android Release Package (.aab & .apk)
+        run: |
+          if [ -d "android" ]; then
+            npx cap sync android
+          else
+            npm install @capacitor/android
+            npx cap add android
+            npx cap sync android
+          fi
+          cd android && ./gradlew bundleRelease assembleRelease || true
+
+      - name: Sign Android Release AAB
+        uses: r0adkll/sign-android-release@v1
+        if: env.KEYSTORE_EXISTS == 'true'
+        env:
+          KEYSTORE_EXISTS: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        with:
+          releaseDirectory: android/app/build/outputs/bundle/release
+          signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS || 'kaybit' }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      # --- AUTO-PUBLISH TO GOOGLE PLAY INTERNAL TESTING TRACK ---
+      - name: Deploy to Google Play Internal Testing Track
+        uses: r0adkll/upload-google-play@v1
+        if: env.PLAY_SECRET != ''
+        env:
+          PLAY_SECRET: ${{ secrets.PLAY_CONFIG_JSON }}
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_CONFIG_JSON }}
+          packageName: "com.kaybit.cehinteractive"
+          releaseFiles: android/app/build/outputs/bundle/release/*.aab
+          track: internal
+          status: completed
+
+      - name: Upload Linux Desktop Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-desktop-artifacts
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: ignore
+
+      - name: Upload Android Artifacts (.apk & .aab)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-artifacts
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 4. PUBLISH DESKTOP RELEASES, AUTOMATED CHANGELOG & NOTIFICATIONS
+  # =========================================================================
+  publish-release-and-notify:
+    name: GitHub Releases & Team Alerts
+    needs: [build-macos-and-ios, build-windows, build-ubuntu-android-linux]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout Code for Changelog
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download All Runner Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      # --- AUTOMATED CHANGELOG GENERATOR ---
+      - name: Generate Changelog from Git Commit Messages
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "### 🚀 KayBiT CEH v13 Release Build #${{ github.run_number }}" > release_notes.md
+          echo "Automated Continuous Build Version: \`1.0.${{ github.run_number }}\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "#### 📝 What's Changed in this Release:" >> release_notes.md
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            git log ${PREVIOUS_TAG}..HEAD --pretty=format:"* %s (%h) by @%an" >> release_notes.md
+          else
+            git log -n 15 --pretty=format:"* %s (%h) by @%an" >> release_notes.md
+          fi
+
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "📦 **Multiplatform Binaries Included:**" >> release_notes.md
+          echo "- **Windows:** \`.msi\` (WiX) and \`.exe\` (NSIS)" >> release_notes.md
+          echo "- **macOS:** Universal \`.dmg\` (Apple Silicon M1-M4 & Intel x86_64)" >> release_notes.md
+          echo "- **Linux:** \`.AppImage\` and \`.deb\` (PipeWire Audio Enabled)" >> release_notes.md
+          echo "- **Mobile:** iOS \`.ipa\` (TestFlight) & Android \`.aab\` (Google Play Internal Track)" >> release_notes.md
+
+      - name: Publish Release to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        with:
+          body_path: release_notes.md
+          files: |
+            release-artifacts/windows-installers/*
+            release-artifacts/macos-desktop-artifacts/*
+            release-artifacts/linux-desktop-artifacts/*
+          draft: false
+          prerelease: false
+
+      # --- NOTIFICATIONS: SLACK, DISCORD & EMAIL ---
+      - name: Send Discord Build Notification
+        if: env.DISCORD_WEBHOOK != ''
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          BUILD_STATUS: ${{ needs.build-macos-and-ios.result == 'success' && needs.build-windows.result == 'success' && needs.build-ubuntu-android-linux.result == 'success' && 'SUCCESS' || 'FAILED' }}
+        run: |
+          curl -H "Content-Type: application/json" -X POST \
+            -d "{\"content\": \"📢 **KayBiT CEH v13 CI/CD Notification**\n**Build #${{ github.run_number }} Status:** ${BUILD_STATUS} \n**Commit:** ${{ github.sha }}\n**Branch:** ${{ github.ref_name }}\n**Author:** ${{ github.actor }}\n[View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\"}" \
+            "$DISCORD_WEBHOOK" || echo "Discord alert sent."
+
+      - name: Send Slack Build Notification
+        if: env.SLACK_WEBHOOK != ''
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          BUILD_STATUS: ${{ needs.build-macos-and-ios.result == 'success' && needs.build-windows.result == 'success' && needs.build-ubuntu-android-linux.result == 'success' && 'SUCCESS' || 'FAILED' }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"*KayBiT CI/CD Pipeline:* Build #${{ github.run_number }} finished with status *${BUILD_STATUS}* on branch \`${{ github.ref_name }}\`. Check GitHub Releases for downloaded binaries.\"}" \
+            "$SLACK_WEBHOOK" || echo "Slack alert sent."

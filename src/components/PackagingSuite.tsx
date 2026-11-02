@@ -10,14 +10,84 @@ import {
   Smartphone,
   Monitor,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  GitBranch,
+  Layers
 } from 'lucide-react';
 
 export const PackagingSuite: React.FC = () => {
-  const [selectedSuite, setSelectedSuite] = useState<'python' | 'node' | 'go' | 'rust' | 'install'>('python');
+  const [selectedSuite, setSelectedSuite] = useState<
+    'github_actions' | 'brand_assets' | 'python' | 'node' | 'go' | 'rust' | 'install'
+  >('github_actions');
   const [copied, setCopied] = useState(false);
 
   const scriptsData = {
+    github_actions: {
+      name: 'GitHub Actions Multi-Platform CI/CD (.github/workflows/build-and-package.yml)',
+      filename: 'build-and-package.yml',
+      command: 'gh workflow run build-and-package.yml',
+      desc: '3-tier virtual runner matrix (macOS, Windows, Ubuntu) with Base64 code-signing, TestFlight, Google Play, and automated changelogs.',
+      code: `# Multi-Platform CI/CD Build, Sign & Package
+# Matrix: macos-latest (iOS .ipa + macOS Universal .dmg), windows-latest (Tauri .msi + .exe), ubuntu-latest (Android .aab + Linux .AppImage)
+# Detailed Documentation: /GitHub_Actions.md
+name: Multi-Platform CI/CD Build, Sign & Package
+
+on:
+  push:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-macos-and-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: \${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          p12-password: \${{ secrets.APPLE_CERTIFICATE_P12_PASSWORD }}
+      - run: npx tauri build --target universal-apple-darwin
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx tauri build
+
+  build-ubuntu-android-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r0adkll/sign-android-release@v1
+        with:
+          signingKeyBase64: \${{ secrets.ANDROID_KEYSTORE_BASE64 }}`
+    },
+    brand_assets: {
+      name: 'KBT Brand Logo & App Icon Multiplatform Integration Guide',
+      filename: 'kbt-brand-integration.md',
+      command: 'npm run tauri icon ./public/assets/kbt-logo.png',
+      desc: 'Squircle mask utility, Desktop Title Bar (20px), Mobile App Bar (30px), and Web Header (36px) assets.',
+      code: `/* Tailwind CSS Squircle Mask Utility (src/index.css) */
+@layer utilities {
+  .mask-squircle {
+    mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="black" d="M 0,50 C 0,4 4,0 50,0 C 96,0 100,4 100,50 C 100,96 96,100 50,100 C 4,100 0,96 0,50 Z"/></svg>');
+    mask-size: 100% 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="black" d="M 0,50 C 0,4 4,0 50,0 C 96,0 100,4 100,50 C 100,96 96,100 50,100 C 4,100 0,96 0,50 Z"/></svg>');
+    -webkit-mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+  }
+}
+
+# Multiplatform Asset Sizing Reference:
+# 1. Desktop Title Bar (Windows/macOS): 16x16 - 24x24 (.ico / .icns)
+# 2. Mobile App Bar (iOS/Android): 28x28 - 32x32 (Adaptive Vectors + Squircle)
+# 3. Web Header Bar (Web Browser / PWA): 34x34 - 40x40 (Squircle + Glow)
+#
+# Generate all platform icons with Tauri CLI:
+npm run tauri icon ./public/assets/kbt-logo.png`
+    },
     python: {
       name: 'Python Interactive PDF Generator (ReportLab)',
       filename: 'generate_interactive_pdf.py',
@@ -136,7 +206,7 @@ fn main() -> wry::Result<()> {
       filename: 'INSTALLATION.md',
       command: 'cat INSTALLATION.md',
       desc: 'Step-by-step instructions for Android APK (Capacitor), Windows EXE (Tauri), macOS DMG, and GitHub Actions CI/CD.',
-      code: `# Refer to the root INSTALLATION.md file in the workspace
+      code: `# Refer to the root INSTALLATION.md and GitHub_Actions.md files
 # Key targets:
 # 1. Android APK: npx cap add android && cd android && ./gradlew assembleDebug
 # 2. Desktop Windows/Mac: npx tauri build
@@ -174,7 +244,7 @@ fn main() -> wry::Result<()> {
             <div>
               <h5 className="mb-0 text-light fw-bold">Cross-Platform Packaging Suites & Automations</h5>
               <small className="text-secondary">
-                Portable automation scripts in Python, Node.js, Go, and Rust for offline distribution and packaging
+                Portable automation scripts in Python, Node.js, Go, Rust, GitHub Actions CI/CD, and KBT Brand Assets
               </small>
             </div>
           </div>
@@ -185,6 +255,42 @@ fn main() -> wry::Result<()> {
         {/* Left Selector Column */}
         <div className="col-12 col-md-4">
           <div className="list-group border border-secondary rounded shadow-sm">
+            <button
+              className={`list-group-item list-group-item-action border-secondary p-3 ${
+                selectedSuite === 'github_actions' ? 'bg-info text-dark fw-bold' : 'bg-dark text-light'
+              }`}
+              onClick={() => setSelectedSuite('github_actions')}
+            >
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <span className="d-flex align-items-center gap-1.5">
+                  <GitBranch size={16} />
+                  <span>GitHub Actions CI/CD</span>
+                </span>
+                <span className="badge bg-success bg-opacity-40 text-light small">Multi-Platform</span>
+              </div>
+              <small className={selectedSuite === 'github_actions' ? 'text-dark text-opacity-75' : 'text-secondary'}>
+                3-runner matrix, code signing, TestFlight & Play Store
+              </small>
+            </button>
+
+            <button
+              className={`list-group-item list-group-item-action border-secondary p-3 ${
+                selectedSuite === 'brand_assets' ? 'bg-info text-dark fw-bold' : 'bg-dark text-light'
+              }`}
+              onClick={() => setSelectedSuite('brand_assets')}
+            >
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <span className="d-flex align-items-center gap-1.5">
+                  <Layers size={16} />
+                  <span>KBT Brand & App Icons</span>
+                </span>
+                <span className="badge bg-warning bg-opacity-40 text-dark small">Squircle UI</span>
+              </div>
+              <small className={selectedSuite === 'brand_assets' ? 'text-dark text-opacity-75' : 'text-secondary'}>
+                Desktop, Mobile & Web Header logo sizing specs
+              </small>
+            </button>
+
             <button
               className={`list-group-item list-group-item-action border-secondary p-3 ${
                 selectedSuite === 'python' ? 'bg-info text-dark fw-bold' : 'bg-dark text-light'
@@ -263,11 +369,12 @@ fn main() -> wry::Result<()> {
 
           {/* Quick Platform Overview Card */}
           <div className="card bg-dark border-secondary p-3 mt-3 shadow-sm">
-            <h6 className="text-light fw-bold mb-2">Native Packaging Highlights</h6>
+            <h6 className="text-light fw-bold mb-2">Multi-Platform CI/CD Highlights</h6>
             <ul className="small text-secondary ps-3 mb-0 lh-lg">
-              <li><strong>Android:</strong> Capacitor wraps the <code>dist/</code> folder into Gradle APK/AAB.</li>
-              <li><strong>Desktop:</strong> Tauri compiles into 12 MB installers for Windows and macOS.</li>
-              <li><strong>Zero Dependencies:</strong> Single-file HTML and Go binary run anywhere offline.</li>
+              <li><strong>macOS Runner:</strong> Apple codesigning, iOS .ipa & macOS Universal .dmg.</li>
+              <li><strong>Windows Runner:</strong> Rust/Tauri WiX .msi & NSIS .exe with Signtool.</li>
+              <li><strong>Ubuntu Runner:</strong> Android SDK/NDK .aab & Linux PipeWire .AppImage.</li>
+              <li><strong>Zero Secret Leaks:</strong> Base64 decoded in-memory on the fly.</li>
             </ul>
           </div>
         </div>
